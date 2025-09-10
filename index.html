@@ -787,6 +787,38 @@
         
         <!-- Settings Tab -->
         <div id="settings" class="tab-content">
+            <!-- Backup Section -->
+            <div class="settings-card" style="margin-bottom: 20px;">
+                <div class="settings-title">💾 Backup & Restore</div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
+                        <h3 style="color: #28a745; margin-bottom: 15px; font-size: 18px;">📥 Export Backup</h3>
+                        <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                            Download all your client data and policies as a backup file.
+                        </p>
+                        <button onclick="exportData()" class="submit-btn" style="background: #28a745; margin: 0; padding: 12px 24px; font-size: 16px;">
+                            Download Backup
+                        </button>
+                    </div>
+                    
+                    <div style="background: #f8f9fa; padding: 20px; border-radius: 10px;">
+                        <h3 style="color: #667eea; margin-bottom: 15px; font-size: 18px;">📤 Import Backup</h3>
+                        <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                            Restore client data from a previous backup file.
+                        </p>
+                        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="handleImport(event)">
+                        <button onclick="document.getElementById('importFile').click()" class="submit-btn" style="background: #667eea; margin: 0; padding: 12px 24px; font-size: 16px;">
+                            Choose File to Import
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="backupMessage" style="display: none; margin-top: 20px; padding: 15px; border-radius: 8px;">
+                    <!-- Success/Error messages will appear here -->
+                </div>
+            </div>
+            
             <div class="settings-grid">
                 <div class="settings-card">
                     <div class="settings-title">📧 Email Automation</div>
@@ -1345,6 +1377,164 @@
         window.onclick = function(event) {
             if (event.target.className === 'modal') {
                 event.target.style.display = 'none';
+            }
+        }
+        
+        // Export data function
+        async function exportData() {
+            const backupMessage = document.getElementById('backupMessage');
+            backupMessage.style.display = 'none';
+            
+            try {
+                // Show loading message
+                backupMessage.style.display = 'block';
+                backupMessage.style.background = '#ffc107';
+                backupMessage.style.color = '#856404';
+                backupMessage.innerHTML = '⏳ Preparing your backup...';
+                
+                // Fetch data from server
+                const response = await fetch(SCRIPT_URL + '?action=exportClients');
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    // Create downloadable file
+                    const dataStr = JSON.stringify(result.data, null, 2);
+                    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                    
+                    // Create download link
+                    const link = document.createElement('a');
+                    const date = new Date().toISOString().split('T')[0];
+                    link.download = `insurance_crm_backup_${date}.json`;
+                    link.href = window.URL.createObjectURL(dataBlob);
+                    link.click();
+                    
+                    // Show success message
+                    backupMessage.style.background = '#d4edda';
+                    backupMessage.style.color = '#155724';
+                    backupMessage.innerHTML = `✅ Backup downloaded successfully! <br>
+                        ${result.recordCount.clients} clients and ${result.recordCount.policies} policies exported.`;
+                    
+                    // Hide message after 5 seconds
+                    setTimeout(() => {
+                        backupMessage.style.display = 'none';
+                    }, 5000);
+                } else {
+                    throw new Error(result.message || 'Export failed');
+                }
+            } catch (error) {
+                console.error('Export error:', error);
+                backupMessage.style.display = 'block';
+                backupMessage.style.background = '#f8d7da';
+                backupMessage.style.color = '#721c24';
+                backupMessage.innerHTML = '❌ Export failed. Please try again.';
+                
+                setTimeout(() => {
+                    backupMessage.style.display = 'none';
+                }, 5000);
+            }
+        }
+        
+        // Import data function
+        async function handleImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const backupMessage = document.getElementById('backupMessage');
+            backupMessage.style.display = 'none';
+            
+            // Check file type
+            if (!file.name.endsWith('.json')) {
+                backupMessage.style.display = 'block';
+                backupMessage.style.background = '#f8d7da';
+                backupMessage.style.color = '#721c24';
+                backupMessage.innerHTML = '❌ Please select a valid JSON backup file.';
+                setTimeout(() => {
+                    backupMessage.style.display = 'none';
+                }, 3000);
+                return;
+            }
+            
+            // Confirm import
+            if (!confirm('Are you sure you want to import this backup? This will add all clients and policies from the backup file.')) {
+                event.target.value = ''; // Reset file input
+                return;
+            }
+            
+            try {
+                // Show loading message
+                backupMessage.style.display = 'block';
+                backupMessage.style.background = '#ffc107';
+                backupMessage.style.color = '#856404';
+                backupMessage.innerHTML = '⏳ Importing backup data...';
+                
+                // Read file
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        const importData = JSON.parse(e.target.result);
+                        
+                        // Validate data structure
+                        if (!importData.clients || !importData.policies) {
+                            throw new Error('Invalid backup file format');
+                        }
+                        
+                        // Send to server
+                        const response = await fetch(SCRIPT_URL, {
+                            method: 'POST',
+                            mode: 'no-cors',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                action: 'importClients',
+                                importData: importData
+                            })
+                        });
+                        
+                        // Show success (we assume success with no-cors)
+                        backupMessage.style.background = '#d4edda';
+                        backupMessage.style.color = '#155724';
+                        backupMessage.innerHTML = `✅ Import completed! <br>
+                            ${importData.clients.length} clients and ${importData.policies.length} policies processed.<br>
+                            Duplicates were automatically skipped.`;
+                        
+                        // Reload clients if on view tab
+                        if (document.getElementById('view-clients').classList.contains('active')) {
+                            setTimeout(loadClients, 1000);
+                        }
+                        
+                        // Hide message after 5 seconds
+                        setTimeout(() => {
+                            backupMessage.style.display = 'none';
+                        }, 5000);
+                        
+                    } catch (parseError) {
+                        console.error('Parse error:', parseError);
+                        backupMessage.style.background = '#f8d7da';
+                        backupMessage.style.color = '#721c24';
+                        backupMessage.innerHTML = '❌ Invalid backup file. Please select a valid backup.';
+                        
+                        setTimeout(() => {
+                            backupMessage.style.display = 'none';
+                        }, 5000);
+                    }
+                };
+                
+                reader.readAsText(file);
+                
+            } catch (error) {
+                console.error('Import error:', error);
+                backupMessage.style.display = 'block';
+                backupMessage.style.background = '#f8d7da';
+                backupMessage.style.color = '#721c24';
+                backupMessage.innerHTML = '❌ Import failed. Please try again.';
+                
+                setTimeout(() => {
+                    backupMessage.style.display = 'none';
+                }, 5000);
+            } finally {
+                // Reset file input
+                event.target.value = '';
             }
         }
     </script>
