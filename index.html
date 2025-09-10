@@ -1280,17 +1280,124 @@
             document.getElementById('editClientId').value = clientId;
             document.getElementById('submitBtn').textContent = '💾 Update Client Information';
             
-            // Populate form with client data
-            // This would normally come from the server
-            // For demo, using basic data
-            document.getElementById('firstName').value = client.name.split(' ')[0];
-            document.getElementById('lastName').value = client.name.split(' ')[1] || '';
-            document.getElementById('email').value = client.email;
-            document.getElementById('phone').value = client.phone;
-            document.getElementById('birthday').value = client.birthday || '';
+            // Populate ALL form fields with existing client data
+            document.getElementById('firstName').value = client.firstName || '';
+            document.getElementById('lastName').value = client.lastName || '';
+            document.getElementById('email').value = client.email || '';
+            document.getElementById('phone').value = client.phone || '';
+            
+            // Format dates properly for input fields (YYYY-MM-DD format)
+            if (client.birthday) {
+                // Convert from various date formats to YYYY-MM-DD
+                const bDate = new Date(client.birthday);
+                if (!isNaN(bDate)) {
+                    document.getElementById('birthday').value = bDate.toISOString().split('T')[0];
+                }
+            }
+            
+            if (client.anniversary) {
+                const aDate = new Date(client.anniversary);
+                if (!isNaN(aDate)) {
+                    document.getElementById('anniversary').value = aDate.toISOString().split('T')[0];
+                }
+            }
+            
+            // Populate address fields
+            document.getElementById('address').value = client.address || '';
+            document.getElementById('city').value = client.city || '';
+            document.getElementById('state').value = client.state || '';
+            document.getElementById('zipCode').value = client.zipCode || '';
+            
+            // Populate other fields
+            document.getElementById('preferredContact').value = client.preferredContact || 'email';
+            document.getElementById('notes').value = client.notes || '';
+            document.getElementById('tags').value = client.tags || '';
+            
+            // Note: Policies would need to be loaded separately from the server
+            // For now, show a message about policies
+            const policiesContainer = document.getElementById('policiesContainer');
+            if (client.policies) {
+                policiesContainer.innerHTML = `
+                    <div class="policy-item" style="background-color: #fff3cd; border: 2px solid #ffc107;">
+                        <p style="color: #856404; margin: 10px;">
+                            <strong>Current Policies:</strong> ${client.policies}<br>
+                            <small>Note: To modify policies, please add new policy information below. Existing policies will be preserved unless you explicitly change them.</small>
+                        </p>
+                    </div>
+                    <div class="policy-item">
+                        <span class="policy-remove" onclick="removePolicy(this)">×</span>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Policy Type</label>
+                                <select name="policyType[]">
+                                    <option value="">Select Type</option>
+                                    <option value="auto">Auto Insurance</option>
+                                    <option value="home">Homeowners</option>
+                                    <option value="renters">Renters</option>
+                                    <option value="life">Life Insurance</option>
+                                    <option value="motorcycle">Motorcycle</option>
+                                    <option value="boat">Boat/Watercraft</option>
+                                    <option value="rv">RV Insurance</option>
+                                    <option value="umbrella">Umbrella Policy</option>
+                                    <option value="business">Business Insurance</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Policy Number</label>
+                                <input type="text" name="policyNumber[]">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Carrier</label>
+                                <select name="carrier[]">
+                                    <option value="">Select Carrier</option>
+                                    <option value="nationwide">Nationwide</option>
+                                    <option value="progressive">Progressive</option>
+                                    <option value="nationalgen">National General</option>
+                                    <option value="alamance">Alamance</option>
+                                    <option value="travelers">Travelers</option>
+                                    <option value="foremost">Foremost</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Premium</label>
+                                <input type="text" name="premium[]" placeholder="$0.00">
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Effective Date</label>
+                                <input type="date" name="effectiveDate[]">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Renewal Date</label>
+                                <input type="date" name="renewalDate[]">
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
             
             // Scroll to top
             window.scrollTo(0, 0);
+            
+            // Show a message that edit mode is active
+            const successMessage = document.getElementById('successMessage');
+            successMessage.textContent = '📝 Edit Mode: Modify the information below and click Update to save changes.';
+            successMessage.style.display = 'block';
+            successMessage.style.backgroundColor = '#cfe2ff';
+            successMessage.style.color = '#084298';
+            
+            setTimeout(() => {
+                successMessage.style.display = 'none';
+            }, 5000);
         }
         
         // Delete client function
